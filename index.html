@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Retrouvons Arthur — Escape Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a; --surface: #111111; --border: #222222;
+      --accent: #e8ff47; --accent2: #ff4747; --text: #f0f0f0; --muted: #666666;
+      --font-display: 'Bebas Neue', sans-serif; --font-body: 'DM Sans', sans-serif;
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+
+    /* ── MENU BUTTON ── */
+    #menu-btn {
+      position: fixed; top: 24px; left: 24px; z-index: 1000;
+      width: 48px; height: 48px; background: var(--accent); border: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      transition: background 0.2s;
+    }
+    #menu-btn:hover { background: #d4eb30; }
+    #menu-btn span { display: block; width: 20px; height: 2px; background: #0a0a0a; transition: transform 0.3s, opacity 0.3s; transform-origin: center; }
+    body.menu-open #menu-btn span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    body.menu-open #menu-btn span:nth-child(2) { opacity: 0; }
+    body.menu-open #menu-btn span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ── MENU ── */
+    #menu-dropdown {
+      position: fixed; top: 0; left: 0; z-index: 999;
+      width: 300px; height: 100vh; background: var(--surface); border-right: 1px solid var(--border);
+      transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+      display: flex; flex-direction: column; padding: 100px 40px 40px;
+    }
+    body.menu-open #menu-dropdown { transform: translateX(0); }
+    .menu-logo { font-family: var(--font-display); font-size: 38px; letter-spacing: 4px; color: var(--accent); margin-bottom: 8px; }
+    .menu-tagline { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 48px; }
+    .menu-nav { list-style: none; flex: 1; }
+    .menu-nav li { margin-bottom: 4px; }
+    .menu-nav a {
+      display: flex; align-items: center; gap: 14px; padding: 14px 0;
+      font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+      text-decoration: none; color: var(--muted); border-bottom: 1px solid transparent;
+      transition: color 0.2s, border-color 0.2s; cursor: pointer;
+    }
+    .menu-nav a .nav-num { font-family: var(--font-display); font-size: 20px; color: var(--border); transition: color 0.2s; min-width: 28px; }
+    .menu-nav a .nav-lock { margin-left: auto; font-size: 14px; }
+    .menu-nav a:hover, .menu-nav a.active { color: var(--text); border-bottom-color: var(--border); }
+    .menu-nav a:hover .nav-num, .menu-nav a.active .nav-num { color: var(--accent); }
+    .menu-nav a.active { color: var(--accent); font-weight: 500; }
+    .menu-footer { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+
+    /* ── OVERLAY ── */
+    #overlay { position: fixed; inset: 0; z-index: 998; background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+    body.menu-open #overlay { opacity: 1; pointer-events: all; }
+
+    /* ── PAGES ── */
+    .page { display: none; min-height: 100vh; }
+    .page.active { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+
+    /* ── TOPBAR ── */
+    .topbar { position: fixed; top: 24px; right: 32px; z-index: 100; display: flex; align-items: center; gap: 24px; }
+    .topbar-title { font-family: var(--font-display); font-size: 22px; letter-spacing: 5px; color: var(--text); opacity: 0.15; }
+    .topbar-page { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+      padding: 80px 80px 80px 120px; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content:'ARTHUR'; position:absolute; right:-40px; top:50%; transform:translateY(-50%);
+      font-family:var(--font-display); font-size:clamp(120px,18vw,260px);
+      color:var(--surface); letter-spacing:10px; pointer-events:none; user-select:none;
+    }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:8px; background:var(--accent);
+      color:#0a0a0a; font-size:10px; font-weight:500; letter-spacing:3px;
+      text-transform:uppercase; padding:6px 14px; margin-bottom:32px; width:fit-content;
+    }
+    .hero-badge::before { content:'●'; font-size:8px; animation:blink 1.5s infinite; }
+    @keyframes blink { 0%,100%{opacity:1;}50%{opacity:0.2;} }
+    .hero h1 { font-family:var(--font-display); font-size:clamp(60px,9vw,130px); line-height:0.9; letter-spacing:4px; margin-bottom:28px; }
+    .hero h1 em { color:var(--accent); font-style:normal; }
+    .hero p { font-size:16px; color:var(--muted); max-width:480px; line-height:1.8; margin-bottom:48px; }
+    .btn-primary {
+      display:inline-flex; align-items:center; gap:12px; background:var(--accent);
+      color:#0a0a0a; font-size:12px; font-weight:500; letter-spacing:2px; text-transform:uppercase;
+      padding:16px 32px; border:none; cursor:pointer; text-decoration:none;
+      transition:background 0.2s, gap 0.2s; width:fit-content;
+    }
+    .btn-primary:hover { background:#d4eb30; gap:18px; }
+
+    /* Mission buttons on accueil */
+    .mission-btns { display:flex; flex-direction:column; gap:10px; margin-top:48px; max-width:420px; }
+    .mission-btn {
+      display:flex; align-items:center; gap:20px;
+      background:var(--surface); border:1px solid var(--border);
+      padding:18px 24px; text-decoration:none; color:var(--text);
+      transition:border-color 0.2s, background 0.2s, transform 0.15s;
+      cursor:pointer;
+    }
+    .mission-btn:hover { border-color:var(--accent); background:#161600; transform:translateX(4px); }
+    .mission-btn:hover .mbtn-num { color:var(--accent); }
+    .mbtn-num { font-family:var(--font-display); font-size:26px; color:var(--border); min-width:36px; transition:color 0.2s; }
+    .mbtn-label { font-size:13px; letter-spacing:3px; text-transform:uppercase; flex:1; }
+    .mbtn-lock { font-size:15px; margin-left:auto; }
+
+    /* ── LOCK SCREEN ── */
+    .lock-screen {
+      min-height:100vh; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:40px 24px;
+      position:relative; overflow:hidden;
+    }
+    .lock-screen::before {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(ellipse at center, #141408 0%, #0a0a0a 70%);
+      pointer-events:none;
+    }
+    .lock-inner { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; text-align:center; width:100%; max-width:380px; }
+
+    /* Padlock */
+    .padlock-wrap { margin-bottom:36px; position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; }
+    .padlock-svg { width:100px; height:100px; overflow:visible; }
+
+    /* Idle glow ring */
+    .padlock-glow {
+      fill:none; stroke:var(--border); stroke-width:1.5;
+      r:52; cx:40; cy:40;
+      opacity:0.4;
+      animation: pulseRing 2.5s ease-in-out infinite;
+      transform-origin:40px 40px;
+    }
+    @keyframes pulseRing {
+      0%,100% { r:48; opacity:0.3; }
+      50%      { r:54; opacity:0.6; }
+    }
+
+    .padlock-shackle {
+      fill:none; stroke:var(--muted); stroke-width:6; stroke-linecap:round;
+      transition:transform 0.6s cubic-bezier(0.34,1.56,0.64,1), stroke 0.3s, opacity 0.3s;
+      transform-origin:40px 28px;
+    }
+    .padlock-body {
+      fill:var(--surface); stroke:var(--border); stroke-width:2.5;
+      transition:fill 0.4s, stroke 0.4s;
+    }
+    .padlock-keyhole { fill:var(--muted); transition:fill 0.4s; }
+
+    /* Particles canvas */
+    .padlock-particles {
+      position:absolute; inset:-30px; pointer-events:none;
+      width:calc(100% + 60px); height:calc(100% + 60px);
+    }
+
+    /* Flash overlay */
+    .padlock-flash {
+      position:absolute; inset:-20px; border-radius:50%;
+      background:radial-gradient(circle, rgba(232,255,71,0.6) 0%, transparent 70%);
+      opacity:0; pointer-events:none; transform:scale(0.5);
+      transition:none;
+    }
+    .padlock-flash.burst {
+      animation: flashBurst 0.7s ease-out forwards;
+    }
+    @keyframes flashBurst {
+      0%   { opacity:0.9; transform:scale(0.4); }
+      40%  { opacity:0.7; transform:scale(1.2); }
+      100% { opacity:0;   transform:scale(2); }
+    }
+
+    /* Open state */
+    .padlock-svg.opening .padlock-shackle {
+      transform: rotate(-50deg) translateY(-10px);
+      stroke: var(--accent);
+    }
+    .padlock-svg.opening .padlock-body  { stroke: var(--accent); fill: #1a1f00; }
+    .padlock-svg.opening .padlock-keyhole { fill: var(--accent); }
+    .padlock-svg.opening .padlock-glow {
+      stroke: var(--accent); opacity:1;
+      animation: openRing 0.8s ease-out forwards;
+    }
+    @keyframes openRing {
+      0%   { r:48; opacity:1; stroke-width:2; }
+      60%  { r:62; opacity:0.8; stroke-width:3; }
+      100% { r:76; opacity:0; stroke-width:1; }
+    }
+
+    /* Bounce on open */
+    .padlock-svg.opening {
+      animation: padlockBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes padlockBounce {
+      0%   { transform:scale(1) rotate(0deg); }
+      30%  { transform:scale(1.2) rotate(-4deg); }
+      60%  { transform:scale(0.95) rotate(2deg); }
+      100% { transform:scale(1.05) rotate(0deg); }
+    }
+
+    /* Full screen unlock flash */
+    #unlock-flash {
+      position:fixed; inset:0; z-index:1500; pointer-events:none;
+      background: radial-gradient(ellipse at center, rgba(232,255,71,0.18) 0%, transparent 70%);
+      opacity:0;
+    }
+    #unlock-flash.go { animation: screenFlash 1s ease-out forwards; }
+    @keyframes screenFlash {
+      0%   { opacity:0; }
+      15%  { opacity:1; }
+      100% { opacity:0; }
+    }
+
+    /* Text reveal on unlock */
+    .lock-status-msg {
+      font-size:12px; letter-spacing:3px; text-transform:uppercase;
+      color:var(--accent); margin-top:20px; opacity:0; transform:translateY(8px);
+      transition:opacity 0.4s 0.4s, transform 0.4s 0.4s;
+      min-height:20px;
+    }
+    .lock-status-msg.show { opacity:1; transform:translateY(0); }
+
+    .lock-title { font-family:var(--font-display); font-size:34px; letter-spacing:4px; margin-bottom:6px; }
+    .lock-subtitle { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:40px; }
+
+    /* Dots */
+    .code-dots { display:flex; gap:12px; margin-bottom:36px; }
+    .code-dot {
+      width:16px; height:16px; border-radius:50%;
+      border:2px solid var(--border); background:transparent;
+      transition:background 0.15s, border-color 0.15s;
+    }
+    .code-dot.filled { background:var(--accent); border-color:var(--accent); }
+    .code-dot.error { background:var(--accent2); border-color:var(--accent2); animation:shake 0.4s; }
+    @keyframes shake { 0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)} }
+
+    /* Numpad */
+    .numpad { display:grid; grid-template-columns:repeat(3,68px); gap:8px; }
+    .numpad-btn {
+      width:68px; height:68px; background:var(--surface); border:1px solid var(--border);
+      color:var(--text); font-family:var(--font-display); font-size:28px;
+      cursor:pointer; transition:background 0.12s, border-color 0.12s, transform 0.08s;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .numpad-btn:hover { background:#1a1a1a; border-color:#444; }
+    .numpad-btn:active { transform:scale(0.92); background:#222; }
+    .numpad-btn.del { font-size:17px; color:var(--muted); }
+    .numpad-btn.zero-btn { grid-column:2; }
+
+    .lock-error { font-size:11px; letter-spacing:2px; color:var(--accent2); margin-top:18px; text-transform:uppercase; opacity:0; transition:opacity 0.3s; min-height:18px; }
+    .lock-error.visible { opacity:1; }
+
+    /* ── UNLOCKED CONTENT ── */
+    .unlocked-content {
+      min-height:100vh; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:80px 40px; text-align:center;
+    }
+    .unlocked-banner {
+      display:inline-flex; align-items:center; gap:10px;
+      background:#1a1f00; border:1px solid var(--accent); color:var(--accent);
+      font-size:11px; letter-spacing:3px; text-transform:uppercase; padding:10px 20px; margin-bottom:32px;
+    }
+    .unlocked-big { font-family:var(--font-display); font-size:clamp(48px,8vw,96px); letter-spacing:4px; margin-bottom:16px; }
+    .unlocked-sub { font-size:14px; color:var(--muted); letter-spacing:1px; max-width:400px; line-height:1.8; }
+
+    /* ── ADMIN MODAL ── */
+    #admin-modal {
+      display:none; position:fixed; inset:0; z-index:2000;
+      background:rgba(0,0,0,0.88); align-items:center; justify-content:center;
+    }
+    #admin-modal.open { display:flex; }
+    .admin-box {
+      background:var(--surface); border:1px solid var(--border);
+      width:100%; max-width:460px; padding:48px 40px;
+      animation:fadeIn 0.3s ease;
+    }
+    .admin-box h2 { font-family:var(--font-display); font-size:32px; letter-spacing:3px; color:var(--accent); margin-bottom:6px; }
+    .admin-box .admin-desc { font-size:12px; color:var(--muted); letter-spacing:1px; margin-bottom:36px; }
+    .admin-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+    .admin-row label { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); min-width:100px; }
+    .admin-row input {
+      flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text);
+      font-family:var(--font-body); font-size:20px; letter-spacing:6px;
+      padding:11px 14px; outline:none; transition:border-color 0.2s; text-align:center;
+    }
+    .admin-row input:focus { border-color:var(--accent); }
+    .admin-actions { display:flex; gap:12px; margin-top:28px; }
+    .btn-admin-save {
+      flex:1; background:var(--accent); color:#0a0a0a;
+      font-size:12px; font-weight:500; letter-spacing:2px; text-transform:uppercase;
+      padding:14px; border:none; cursor:pointer; transition:background 0.2s;
+    }
+    .btn-admin-save:hover { background:#d4eb30; }
+    .btn-admin-close {
+      background:transparent; color:var(--muted); border:1px solid var(--border);
+      font-size:12px; letter-spacing:2px; text-transform:uppercase;
+      padding:14px 20px; cursor:pointer; transition:border-color 0.2s, color 0.2s;
+    }
+    .btn-admin-close:hover { border-color:var(--accent2); color:var(--accent2); }
+    .admin-success { font-size:12px; color:var(--accent); letter-spacing:2px; margin-top:14px; opacity:0; transition:opacity 0.3s; text-align:center; text-transform:uppercase; }
+    .admin-success.show { opacity:1; }
+
+    /* Admin tabs */
+    .admin-tabs { display:flex; gap:0; margin-bottom:32px; border-bottom:1px solid var(--border); }
+    .admin-tab {
+      padding:10px 20px; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+      margin-bottom:-1px; transition:color 0.2s, border-color 0.2s; background:none; border-top:none; border-left:none; border-right:none;
+    }
+    .admin-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .admin-panel { display:none; }
+    .admin-panel.active { display:block; }
+    .admin-row textarea {
+      flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text);
+      font-family:var(--font-body); font-size:13px; line-height:1.7;
+      padding:11px 14px; outline:none; transition:border-color 0.2s; resize:vertical; min-height:72px;
+    }
+    .admin-row textarea:focus { border-color:var(--accent); }
+    .admin-row { align-items:flex-start; }
+    #admin-trigger { position:fixed; bottom:0; right:0; width:44px; height:44px; z-index:500; cursor:pointer; opacity:0; }
+
+    /* Hidden admin nav button — same color as bg, barely visible on hover */
+    #admin-nav-btn { color: var(--bg) !important; user-select:none; }
+    #admin-nav-btn .nav-num { color: var(--bg) !important; }
+    #admin-nav-btn:hover { color: #2a2a2a !important; }
+    #admin-nav-btn:hover .nav-num { color: #2a2a2a !important; }
+
+    @media(max-width:700px){
+      .hero { padding:80px 24px 60px; }
+      .hero::before { display:none; }
+      #menu-dropdown { width:100vw; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="topbar-title">RETROUVONS ARTHUR</span>
+    <span class="topbar-page" id="current-page-label">Accueil</span>
+  </div>
+
+  <div id="unlock-flash"></div>
+  <button id="menu-btn" aria-label="Menu"><span></span><span></span><span></span></button>
+  <div id="overlay"></div>
+
+  <nav id="menu-dropdown">
+    <div class="menu-logo">RETROUVONS ARTHUR</div>
+    <div class="menu-tagline">Escape Game Privé</div>
+    <ul class="menu-nav">
+      <li><a href="#" id="admin-nav-btn" onclick="promptAdmin(); return false;" style="color:var(--bg); border-bottom-color:transparent !important;"><span class="nav-num" style="color:var(--bg);">01</span>Administration</a></li>
+      <li><a href="#" data-page="p2"><span class="nav-num">02</span>Mission 1<span class="nav-lock" id="li-lock-p2">🔒</span></a></li>
+      <li><a href="#" data-page="p3"><span class="nav-num">03</span>Mission 2<span class="nav-lock" id="li-lock-p3">🔒</span></a></li>
+      <li><a href="#" data-page="p4"><span class="nav-num">04</span>Mission 3<span class="nav-lock" id="li-lock-p4">🔒</span></a></li>
+      <li><a href="#" data-page="p5"><span class="nav-num">05</span>Mission 4<span class="nav-lock" id="li-lock-p5">🔒</span></a></li>
+    </ul>
+    <div class="menu-footer">© 2025 Enigma — Usage privé</div>
+  </nav>
+
+  <!-- ACCUEIL -->
+  <div class="page active" id="page-accueil">
+    <div class="hero">
+      <div class="hero-badge">Session disponible</div>
+      <h1>RETROUVEZ <em>ARTHUR</em><br/>AVANT QU'IL<br/>NE SOIT<br/>TROP <em>TARD !</em></h1>
+      <div class="mission-btns">
+        <a class="mission-btn" href="#" data-page="p2"><span class="mbtn-num">01</span><span class="mbtn-label">Mission 1</span><span class="mbtn-lock" id="home-lock-p2">🔒</span></a>
+        <a class="mission-btn" href="#" data-page="p3"><span class="mbtn-num">02</span><span class="mbtn-label">Mission 2</span><span class="mbtn-lock" id="home-lock-p3">🔒</span></a>
+        <a class="mission-btn" href="#" data-page="p4"><span class="mbtn-num">03</span><span class="mbtn-label">Mission 3</span><span class="mbtn-lock" id="home-lock-p4">🔒</span></a>
+        <a class="mission-btn" href="#" data-page="p5"><span class="mbtn-num">04</span><span class="mbtn-label">Mission 4</span><span class="mbtn-lock" id="home-lock-p5">🔒</span></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGES VERROUILLÉES -->
+  <div class="page" id="page-p2"></div>
+  <div class="page" id="page-p3"></div>
+  <div class="page" id="page-p4"></div>
+  <div class="page" id="page-p5"></div>
+
+  <!-- ADMIN MODAL -->
+  <div id="admin-modal">
+    <div class="admin-box" style="max-width:520px;">
+      <h2>⚙ ADMIN</h2>
+      <div class="admin-desc">Panneau d'administration — Retrouvons Arthur</div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchTab('codes')">Codes d'accès</button>
+        <button class="admin-tab" onclick="switchTab('indices')">Indices</button>
+      </div>
+
+      <!-- Panel Codes -->
+      <div class="admin-panel active" id="tab-codes">
+        <div class="admin-row"><label>Mission 1</label><input type="text" id="adm-p2" maxlength="10"/></div>
+        <div class="admin-row"><label>Mission 2</label><input type="text" id="adm-p3" maxlength="10"/></div>
+        <div class="admin-row"><label>Mission 3</label><input type="text" id="adm-p4" maxlength="10"/></div>
+        <div class="admin-row"><label>Mission 4</label><input type="text" id="adm-p5" maxlength="10"/></div>
+      </div>
+
+      <!-- Panel Indices -->
+      <div class="admin-panel" id="tab-indices">
+        <div class="admin-row"><label>Mission 1</label><textarea id="idx-p2" placeholder="Texte affiché après déverrouillage de la Mission 1…"></textarea></div>
+        <div class="admin-row"><label>Mission 2</label><textarea id="idx-p3" placeholder="Texte affiché après déverrouillage de la Mission 2…"></textarea></div>
+        <div class="admin-row"><label>Mission 3</label><textarea id="idx-p4" placeholder="Texte affiché après déverrouillage de la Mission 3…"></textarea></div>
+        <div class="admin-row"><label>Mission 4</label><textarea id="idx-p5" placeholder="Texte affiché après déverrouillage de la Mission 4…"></textarea></div>
+      </div>
+
+      <div class="admin-actions">
+        <button class="btn-admin-save" onclick="saveAdmin()">Enregistrer</button>
+        <button class="btn-admin-close" onclick="closeAdmin()">Fermer</button>
+      </div>
+      <div class="admin-success" id="admin-ok">✓ Modifications enregistrées</div>
+    </div>
+  </div>
+
+  <!-- Secret corner -->
+  <div id="admin-trigger" onclick="promptAdmin()"></div>
+
+  <script>
+    const PAGES = ['p2','p3','p4','p5'];
+    const NAMES  = { p2:'Mission 1', p3:'Mission 2', p4:'Mission 3', p5:'Mission 4' };
+    const LABELS = { accueil:'Accueil', p2:'Mission 1', p3:'Mission 2', p4:'Mission 3', p5:'Mission 4' };
+    const ADMIN_PW = '280598';
+
+    let codes   = { p2:'000000', p3:'000000', p4:'000000', p5:'000000' };
+    let indices = { p2:'', p3:'', p4:'', p5:'' };
+    let typed = { p2:'', p3:'', p4:'', p5:'' };
+    let currentPage = 'accueil';
+
+    // ── BUILD LOCK SCREENS ──
+    function buildPage(id) {
+      const name = NAMES[id];
+      const codeLen = codes[id].length;
+      document.getElementById('page-' + id).innerHTML = `
+        <div class="lock-screen" id="ls-${id}">
+          <div class="lock-inner">
+            <div class="padlock-wrap">
+              <canvas class="padlock-particles" id="cv-${id}" width="180" height="180"></canvas>
+              <div class="padlock-flash" id="fl-${id}"></div>
+              <svg class="padlock-svg" id="pl-${id}" viewBox="0 0 80 80" overflow="visible">
+                <circle class="padlock-glow" cx="40" cy="54" r="48"/>
+                <path class="padlock-shackle" d="M24 38 V28 A16 16 0 0 1 56 28 V38"/>
+                <rect class="padlock-body" x="14" y="36" width="52" height="36" rx="4"/>
+                <circle class="padlock-keyhole" cx="40" cy="54" r="5.5"/>
+                <rect class="padlock-keyhole" x="37.5" y="54" width="5" height="9" rx="2"/>
+              </svg>
+            </div>
+            <div class="lock-title" id="lt-${id}">${name}</div>
+            <div class="lock-subtitle" id="lsub-${id}">Entrez le code d'accès</div>
+            <div class="code-dots" id="dt-${id}">
+              ${'<div class="code-dot"></div>'.repeat(codeLen)}
+            </div>
+            <div class="numpad" id="np-${id}">
+              ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="numpad-btn" onclick="tap('${id}','${n}')">${n}</button>`).join('')}
+              <button class="numpad-btn zero-btn" onclick="tap('${id}','0')">0</button>
+              <button class="numpad-btn del" onclick="del('${id}')">⌫</button>
+            </div>
+            <div class="lock-error" id="er-${id}">Code incorrect — réessaie</div>
+            <div class="lock-status-msg" id="sm-${id}">✓ Déverrouillé</div>
+          </div>
+        </div>
+        <div class="unlocked-content" id="uc-${id}" style="display:none">
+          <div class="unlocked-banner">✓ Accès déverrouillé</div>
+          <div class="unlocked-big">${name}</div>
+          <div class="unlocked-sub" id="indice-${id}">${indices[id] || 'Remplace ce texte par le contenu de ton énigme !'}</div>
+        </div>`;
+      typed[id] = '';
+    }
+
+    PAGES.forEach(buildPage);
+
+    // ── INPUT ──
+    function tap(id, d) {
+      const maxLen = codes[id].length;
+      if (typed[id].length >= maxLen) return;
+      typed[id] += d;
+      renderDots(id);
+      if (typed[id].length === maxLen) setTimeout(() => check(id), 150);
+    }
+
+    function del(id) {
+      typed[id] = typed[id].slice(0,-1);
+      renderDots(id);
+      document.getElementById('er-' + id).classList.remove('visible');
+    }
+
+    function renderDots(id) {
+      const dots = document.querySelectorAll(`#dt-${id} .code-dot`);
+      dots.forEach((d,i) => {
+        d.classList.remove('filled','error');
+        if (i < typed[id].length) d.classList.add('filled');
+      });
+    }
+
+    function check(id) {
+      if (typed[id] === codes[id]) {
+        unlock(id);
+      } else {
+        const dots = document.querySelectorAll(`#dt-${id} .code-dot`);
+        dots.forEach(d => { d.classList.remove('filled'); d.classList.add('error'); });
+        document.getElementById('er-' + id).classList.add('visible');
+        setTimeout(() => { typed[id]=''; renderDots(id); }, 700);
+      }
+    }
+
+    function unlock(id) {
+      const pl   = document.getElementById('pl-' + id);
+      const fl   = document.getElementById('fl-' + id);
+      const np   = document.getElementById('np-' + id);
+      const dots = document.getElementById('dt-' + id);
+      const sm   = document.getElementById('sm-' + id);
+      const sub  = document.getElementById('lsub-' + id);
+
+      // Disable numpad
+      if (np) np.style.pointerEvents = 'none';
+      if (dots) dots.style.opacity = '0';
+
+      // Step 1 — padlock opens with bounce
+      pl.classList.add('opening');
+
+      // Step 2 — flash burst (80ms)
+      setTimeout(() => {
+        fl.classList.add('burst');
+        // Screen flash
+        let sf = document.getElementById('unlock-flash');
+        if (!sf) { sf = document.createElement('div'); sf.id='unlock-flash'; document.body.appendChild(sf); }
+        sf.classList.remove('go');
+        void sf.offsetWidth;
+        sf.classList.add('go');
+      }, 80);
+
+      // Step 3 — particles (150ms)
+      setTimeout(() => launchParticles(id), 150);
+
+      // Step 4 — status message
+      setTimeout(() => {
+        if (sub) sub.style.opacity = '0';
+        if (sm) sm.classList.add('show');
+      }, 400);
+
+      // Step 5 — transition to content
+      setTimeout(() => {
+        document.getElementById('ls-' + id).style.opacity = '0';
+        document.getElementById('ls-' + id).style.transition = 'opacity 0.5s';
+      }, 1100);
+      setTimeout(() => {
+        document.getElementById('ls-' + id).style.display = 'none';
+        document.getElementById('uc-' + id).style.display = 'flex';
+        document.getElementById('li-lock-' + id).textContent = '🔓';
+        const hl = document.getElementById('home-lock-' + id);
+        if (hl) hl.textContent = '🔓';
+      }, 1650);
+    }
+
+    function launchParticles(id) {
+      const canvas = document.getElementById('cv-' + id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const cx = W / 2, cy = H / 2;
+      const ACCENT = '#e8ff47';
+      const colors = ['#e8ff47','#ffffff','#d4eb30','#b8ff00','#ffff99'];
+      const N = 38;
+      const particles = [];
+
+      for (let i = 0; i < N; i++) {
+        const angle = (Math.random() * Math.PI * 2);
+        const speed = 1.5 + Math.random() * 4.5;
+        const size  = 2 + Math.random() * 5;
+        const isLine = Math.random() > 0.55;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: 1,
+          decay: 0.018 + Math.random() * 0.022,
+          isLine,
+          len: isLine ? 8 + Math.random() * 16 : 0,
+          angle,
+          gravity: 0.06 + Math.random() * 0.06,
+        });
+      }
+
+      let raf;
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        let alive = false;
+        particles.forEach(p => {
+          if (p.alpha <= 0) return;
+          alive = true;
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.strokeStyle = p.color;
+          if (p.isLine) {
+            ctx.lineWidth = p.size * 0.6;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - Math.cos(p.angle) * p.len * p.alpha, p.y - Math.sin(p.angle) * p.len * p.alpha);
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+          p.x  += p.vx;
+          p.y  += p.vy;
+          p.vy += p.gravity;
+          p.vx *= 0.97;
+          p.alpha -= p.decay;
+        });
+        if (alive) raf = requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, W, H);
+      }
+      draw();
+    }
+
+    function resetLock(id) {
+      const ls = document.getElementById('ls-' + id);
+      const uc = document.getElementById('uc-' + id);
+      const pl = document.getElementById('pl-' + id);
+      if (!ls) return;
+      ls.style.display = '';
+      ls.style.opacity = '';
+      ls.style.transition = '';
+      uc.style.display = 'none';
+      if (pl) pl.classList.remove('opening');
+      const fl = document.getElementById('fl-' + id);
+      if (fl) fl.classList.remove('burst');
+      const np = document.getElementById('np-' + id);
+      if (np) { np.style.pointerEvents = ''; }
+      const dots = document.getElementById('dt-' + id);
+      if (dots) dots.style.opacity = '';
+      const sm = document.getElementById('sm-' + id);
+      if (sm) sm.classList.remove('show');
+      const sub = document.getElementById('lsub-' + id);
+      if (sub) sub.style.opacity = '';
+      // Clear canvas
+      const cv = document.getElementById('cv-' + id);
+      if (cv) cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+      typed[id] = '';
+      renderDots(id);
+      document.getElementById('er-' + id).classList.remove('visible');
+      document.getElementById('li-lock-' + id).textContent = '🔒';
+      const hl = document.getElementById('home-lock-' + id);
+      if (hl) hl.textContent = '🔒';
+    }
+
+    // ── NAVIGATION ──
+    const menuBtn = document.getElementById('menu-btn');
+    const overlay = document.getElementById('overlay');
+
+    menuBtn.addEventListener('click', () => document.body.classList.toggle('menu-open'));
+    overlay.addEventListener('click', () => document.body.classList.remove('menu-open'));
+    document.addEventListener('keydown', e => { if(e.key==='Escape') document.body.classList.remove('menu-open'); });
+
+    function goTo(pageId) {
+      if (PAGES.includes(currentPage)) resetLock(currentPage);
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      document.querySelectorAll('[data-page]').forEach(a => a.classList.toggle('active', a.dataset.page === pageId));
+      document.getElementById('current-page-label').textContent = LABELS[pageId] || '';
+      window.scrollTo({top:0, behavior:'smooth'});
+      document.body.classList.remove('menu-open');
+      currentPage = pageId;
+    }
+
+    document.querySelectorAll('[data-page]').forEach(a => {
+      a.addEventListener('click', e => { e.preventDefault(); goTo(a.dataset.page); });
+    });
+
+    // ── ADMIN ──
+    let currentTab = 'codes';
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.querySelectorAll('.admin-tab').forEach(t => {
+        if (t.textContent.toLowerCase().includes(tab === 'codes' ? 'code' : 'indice')) t.classList.add('active');
+      });
+    }
+
+    function promptAdmin() {
+      const pw = prompt('Mot de passe administrateur :');
+      if (pw === ADMIN_PW) openAdmin();
+      else if (pw !== null) alert('Mot de passe incorrect.');
+    }
+
+    function openAdmin() {
+      PAGES.forEach(p => {
+        document.getElementById('adm-' + p).value = codes[p];
+        document.getElementById('idx-' + p).value = indices[p];
+      });
+      document.getElementById('admin-modal').classList.add('open');
+    }
+
+    function closeAdmin() {
+      document.getElementById('admin-modal').classList.remove('open');
+      document.getElementById('admin-ok').classList.remove('show');
+    }
+
+    function saveAdmin() {
+      PAGES.forEach(p => {
+        // Save codes
+        const v = document.getElementById('adm-' + p).value.trim();
+        if (v.length > 0 && v !== codes[p]) {
+          codes[p] = v;
+          buildPage(p);
+        }
+        // Save indices — update live if page already built
+        const idx = document.getElementById('idx-' + p).value;
+        indices[p] = idx;
+        const el = document.getElementById('indice-' + p);
+        if (el) el.textContent = idx || 'Remplace ce texte par le contenu de ton énigme !';
+      });
+      const ok = document.getElementById('admin-ok');
+      ok.classList.add('show');
+      setTimeout(() => ok.classList.remove('show'), 2200);
+    }
+
+    document.getElementById('admin-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeAdmin();
+    });
+  </script>
+</body>
+</html>
